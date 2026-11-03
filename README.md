@@ -23,6 +23,8 @@ Then open **AWS accounts → + Add AWS account** and add each account with one o
 
 Click **Test connection** before saving: it shows the identity and the clusters it found. All accounts appear together in **Fleet overview**.
 
+**Recommended: sign in once with SSO and let EKS Lens assume the `eks-lens-spoke` role in each account.** Step-by-step guide (role creation, trust policy, EKS access entries, validation, troubleshooting): [docs/assume-role/README.md](docs/assume-role/README.md).
+
 Each identity needs:
 1. The IAM permissions in [`docs/iam-access-key-policy.json`](docs/iam-access-key-policy.json).
 2. An **EKS access entry** in each cluster, for example:
