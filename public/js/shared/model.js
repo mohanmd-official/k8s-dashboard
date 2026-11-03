@@ -104,7 +104,8 @@ export function analyze(raw, opts = {}) {
         : { code: 'DEFAULT', level: 'info', text: 'Kubernetes default namespace (empty).' });
     }
     if (isSystem) flags.push({ code: 'SYSTEM', level: 'info', text: 'System / add-on namespace.' });
-    if (!np.length && ns.name !== 'default' && !isSystem) flags.push({ code: 'EMPTY', level: 'info', text: 'No pods running. Candidate for clean-up.' });
+    if (ns.status === 'Terminating') flags.push({ code: 'TERMINATING', level: 'error', text: 'Namespace is stuck in Terminating. Usually a leftover finalizer or a resource whose API/controller was removed; check `kubectl get ns <name> -o json` status.conditions.' });
+    if (!np.length && ns.name !== 'default' && !isSystem && ns.status !== 'Terminating') flags.push({ code: 'EMPTY', level: 'info', text: 'No pods running. Candidate for clean-up.' });
     const noReq = np.filter((p) => p.noRequests).length;
     if (noReq) flags.push({ code: 'NO_REQUESTS', level: 'warn', text: `${noReq} pod(s) without CPU/memory requests. Cost is based on actual usage only and scheduling is unpredictable.` });
     const bad = np.filter((p) => p.health === 'error').length;

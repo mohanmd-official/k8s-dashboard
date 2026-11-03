@@ -1,5 +1,6 @@
 # EKS Lens - account & cluster registry
 # Copy to config/accounts.yaml (or mount as a ConfigMap at /app/config/accounts.yaml).
+# You can also add accounts in the app (AWS accounts page); those are stored in the database.
 #
 # Running on your laptop? Give each account `profile: <name>` from ~/.aws/config
 # (run `aws sso login --profile <name>` first) and leave roleArn empty.
@@ -16,6 +17,7 @@ settings:
     hoursPerMonth: 730
     spotDiscount: 0.65        # spot nodes priced at (1 - 0.65) x on-demand when no price override
     cpuToMemCostRatio: 7.46   # 1 vCPU-hour costs the same as 7.46 GiB-hours (OpenCost default ratio)
+    livePricing: true         # read prices from the AWS Price List API + spot history (free API calls)
     # Per-instance hourly on-demand price overrides (USD). Anything not listed falls back
     # to the built-in table in server/pricing.js.
     instancePrices:

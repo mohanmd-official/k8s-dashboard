@@ -50,14 +50,23 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000 }
       containers:
         - name: eks-lens
-          image: 111111111111.dkr.ecr.ap-south-1.amazonaws.com/eks-lens:0.1.0
+          image: 111111111111.dkr.ecr.ap-south-1.amazonaws.com/eks-lens:0.2.0
           ports: [{ containerPort: 8080, name: http }]
           env:
             - { name: ACCOUNTS_FILE, value: /config/accounts.yaml }
             - { name: AWS_REGION, value: ap-south-1 }
-            - { name: KUBECTL_WRITE, value: "false" }
-            # Comma-separated SSO emails allowed to open pod shells; empty = every signed-in user
-            - { name: EXEC_ALLOWED_USERS, value: "" }
+            - { name: HOST, value: "0.0.0.0" }
+            # Create / edit / delete from the UI. Turn on, then limit to named people:
+            - { name: WRITE_ENABLED, value: "false" }
+            - { name: WRITE_ALLOWED_USERS, value: "" }      # comma-separated SSO emails
+            - { name: EXEC_ALLOWED_USERS, value: "" }       # pod shell
+            - { name: REVEAL_ALLOWED_USERS, value: "" }     # show secret values
+            # Shared database for a team install (recommended): Amazon RDS for PostgreSQL
+            # - name: DATABASE_URL
+            #   valueFrom: { secretKeyRef: { name: eks-lens-db, key: url } }
+            # Key that encrypts stored AWS access keys (32 random bytes, base64): openssl rand -base64 32
+            - name: EKSL_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: eks-lens-key, key: key } }
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { memory: 512Mi }
@@ -67,9 +76,11 @@ spec:
           volumeMounts:
             - { name: config, mountPath: /config }
             - { name: tmp, mountPath: /tmp }
+            - { name: data, mountPath: /app/data }   # SQLite fallback; use DATABASE_URL for anything shared
       volumes:
         - { name: config, configMap: { name: eks-lens-accounts } }
         - { name: tmp, emptyDir: {} }
+        - { name: data, emptyDir: {} }
 ---
 apiVersion: v1
 kind: Service

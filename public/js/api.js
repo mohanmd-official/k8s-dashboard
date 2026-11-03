@@ -3,6 +3,7 @@
 import { analyze } from './shared/model.js';
 import { DEMO_CLUSTERS, demoInventory, demoLogLine, demoShell } from './shared/mock.js';
 import { fakeKubectl } from './shared/kubectl-demo.js';
+import { demoResources, demoReadObject, DEMO_SM, demoSmValue } from './shared/mock-extra.js';
 
 let staticMode = false;
 const tokenQS = () => { const t = new URLSearchParams(location.search).get('token'); return t ? `token=${encodeURIComponent(t)}&` : ''; };
@@ -21,7 +22,9 @@ export async function meta() {
     return await r.json();
   } catch {
     staticMode = true;
-    return { demo: true, static: true, readOnly: false, user: 'preview', accounts: [...new Set(DEMO_CLUSTERS.map((c) => c.account))] };
+    return { demo: true, static: true, readOnly: false, user: 'preview', canExec: true, canWrite: true, canReveal: true, db: 'browser preview',
+      costModel: { cpuToMemCostRatio: 7.46, spotDiscount: 0.65 }, accounts: [...new Set(DEMO_CLUSTERS.map((c) => c.account))],
+      kinds: { secrets: 'Secrets', configmaps: 'ConfigMaps', services: 'Services', ingresses: 'Ingresses', pvcs: 'Volumes (PVC)', hpas: 'Autoscalers (HPA)', cronjobs: 'CronJobs', jobs: 'Jobs', serviceaccounts: 'Service accounts', events: 'Events' } };
   }
 }
 
@@ -106,4 +109,69 @@ function realSocket(url, binary = false) {
   s.send = (obj) => { const m = JSON.stringify(obj); ws.readyState === 1 ? ws.send(m) : s.queue.push(m); };
   s.close = () => ws.close();
   return s;
+}
+
+
+// ------------------------------------------------------------------ v0.2: accounts, resources, writes, Secrets Manager
+async function send(method, url, body) {
+  const sep = url.includes('?') ? '&' : '?';
+  const r = await fetch(`${url}${tokenQS() ? sep + tokenQS().slice(0, -1) : ''}`, { method, headers: { 'content-type': 'application/json', accept: 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `${r.status} ${r.statusText}`);
+  return j;
+}
+const q = (o) => new URLSearchParams(Object.entries(o).filter(([, v]) => v != null && v !== '')).toString();
+
+const previewAccounts = DEMO_CLUSTERS.reduce((acc, c) => {
+  if (!acc.find((a) => a.name === c.account)) acc.push({ id: `preview:${c.account}`, source: 'db', name: c.account, accountId: c.accountId, authType: c.account === 'cd-shared' ? 'profile' : 'keys', profile: c.account === 'cd-shared' ? 'cd-shared' : undefined, accessKeyId: c.account === 'cd-shared' ? undefined : 'AKIA…7Q2D', hasSecret: c.account !== 'cd-shared', regions: [c.region], clusters: null, enabled: true, roleArn: '' });
+  return acc;
+}, []);
+const notInPreview = () => Promise.reject(new Error('This is the browser preview. Run the app (npm start) to connect real AWS accounts.'));
+
+export const accounts = {
+  list: () => (staticMode ? Promise.resolve(previewAccounts) : send('GET', '/api/accounts')),
+  test: (body) => (staticMode ? notInPreview() : send('POST', '/api/accounts/test', body)),
+  create: (body) => (staticMode ? notInPreview() : send('POST', '/api/accounts', body)),
+  update: (id, body) => (staticMode ? notInPreview() : send('PUT', `/api/accounts/${encodeURIComponent(id)}`, body)),
+  remove: (id) => (staticMode ? notInPreview() : send('DELETE', `/api/accounts/${encodeURIComponent(id)}`)),
+};
+
+export async function resources(cluster, kind, ns) {
+  if (staticMode) return demoResources(await snapshot(cluster), kind, ns);
+  return send('GET', `/api/resources?${q({ cluster, kind, ns })}`);
+}
+export async function resource(cluster, kind, ns, name, reveal) {
+  if (staticMode) { const r = demoReadObject(kind, ns, name, reveal); return { ...r, yaml: toYaml(r.object).trimStart() + "\n" }; }
+  return send('GET', `/api/resource?${q({ cluster, kind, ns, name, reveal: reveal ? '1' : '' })}`);
+}
+export function apply(cluster, yaml, { dryRun = false, namespace } = {}) {
+  if (staticMode) {
+    const docs = yaml.split(/^---\s*$/m).filter((d) => d.trim());
+    return Promise.resolve({ demo: true, results: docs.map((d) => ({ kind: (d.match(/^kind:\s*(\S+)/m) || [])[1] || '?', name: (d.match(/^\s+name:\s*(\S+)/m) || [])[1] || '?', namespace: (d.match(/^\s+namespace:\s*(\S+)/m) || [])[1] || namespace || 'default', ok: true, action: dryRun ? 'validated (preview)' : 'applied (preview, nothing changed)' })) });
+  }
+  return send('POST', '/api/apply', { cluster, yaml, dryRun, namespace });
+}
+export const remove = (cluster, kind, ns, name) => (staticMode ? Promise.resolve({ ok: true, demo: true, message: `Deleted ${kind} ${name} (preview, nothing changed)` }) : send('POST', '/api/delete', { cluster, kind, ns, name }));
+export const workload = (cluster, action, kind, ns, name, replicas) => (staticMode ? Promise.resolve({ ok: true, demo: true, message: `${action} ${kind} ${name} (preview, nothing changed)` }) : send('POST', '/api/workload', { cluster, action, kind, ns, name, replicas }));
+export const sm = {
+  list: (cluster, region) => (staticMode ? Promise.resolve(DEMO_SM) : send('GET', `/api/sm?${q({ cluster, region })}`)),
+  value: (cluster, region, id) => (staticMode ? Promise.resolve(demoSmValue(id)) : send('GET', `/api/sm/value?${q({ cluster, region, id })}`)),
+  update: (cluster, region, id, value) => (staticMode ? Promise.resolve({ ok: true, demo: true }) : send('POST', '/api/sm/value', { cluster, region, id, value })),
+  create: (cluster, region, body) => (staticMode ? Promise.resolve({ ok: true, demo: true }) : send('POST', '/api/sm/create', { cluster, region, ...body })),
+};
+export const history = (cluster, days = 30) => (staticMode ? Promise.resolve([]) : send('GET', `/api/history?${q({ cluster, days })}`));
+export const auditLog = () => (staticMode ? Promise.resolve([]) : send('GET', '/api/audit?limit=300'));
+export const isStatic = () => staticMode;
+
+// Minimal YAML writer for the preview (the server uses the yaml package).
+export function toYaml(v, ind = '') {
+  if (v == null) return 'null';
+  if (Array.isArray(v)) return v.length ? v.map((x) => `\n${ind}- ${typeof x === 'object' && x ? toYaml(x, ind + '  ').trimStart() : scalar(x)}`).join('') : '[]';
+  if (typeof v === 'object') {
+    const ks = Object.keys(v).filter((k) => v[k] !== undefined);
+    if (!ks.length) return '{}';
+    return ks.map((k) => { const x = v[k]; return typeof x === 'object' && x && (Array.isArray(x) ? x.length : Object.keys(x).length) ? `\n${ind}${k}:${toYaml(x, ind + '  ')}` : `\n${ind}${k}: ${typeof x === 'object' ? toYaml(x) : scalar(x)}`; }).join('');
+  }
+  return scalar(v);
+  function scalar(x) { if (typeof x === 'string') return /^[\w./:@-]+$/.test(x) && !/^(true|false|null|\d+)$/.test(x) ? x : JSON.stringify(x); return String(x); }
 }

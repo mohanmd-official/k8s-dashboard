@@ -16,7 +16,10 @@ services:
       AWS_PROFILE: ${AWS_PROFILE:-}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       READ_ONLY: ${READ_ONLY:-false}
+      HOST: 0.0.0.0
+      # DATABASE_URL: postgres://user:pass@host:5432/ekslens   # optional: use PostgreSQL instead of SQLite
     volumes:
       - ./config:/app/config:ro
+      - ./data:/app/data               # SQLite database + encryption key (keep, back up, never commit)
       - ${HOME}/.aws:/home/node/.aws   # SSO token cache must be writable for refresh
     restart: unless-stopped

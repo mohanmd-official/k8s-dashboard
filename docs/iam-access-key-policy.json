@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EksLensDiscoverClusters",
+      "Effect": "Allow",
+      "Action": ["eks:ListClusters", "eks:DescribeCluster", "ec2:DescribeRegions", "sts:GetCallerIdentity"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EksLensLivePrices",
+      "Effect": "Allow",
+      "Action": ["pricing:GetProducts", "ec2:DescribeSpotPriceHistory"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EksLensSecretsManagerRead",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:ListSecrets", "secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EksLensSecretsManagerWriteOptional",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:PutSecretValue", "secretsmanager:CreateSecret", "secretsmanager:TagResource"],
+      "Resource": "*"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as k8s from '@kubernetes/client-node';
-import { audit, canExec } from './audit.js';
+import { audit, canExec, canWrite } from './audit.js';
 import { demoLogLine, demoShell } from '../public/js/shared/mock.js';
 import { fakeKubectl } from '../public/js/shared/kubectl-demo.js';
 
@@ -88,7 +88,7 @@ function demoExec(ws, pod, container, user, { cluster, ns }) {
 
 // ------------------------------------------------------------------ kubectl console
 const READ_VERBS = new Set(['get', 'describe', 'logs', 'top', 'events', 'explain', 'api-resources', 'api-versions', 'version', 'auth', 'cluster-info']);
-const WRITE_VERBS = new Set(['rollout', 'scale', 'delete', 'label', 'annotate', 'cordon', 'uncordon']);
+const WRITE_VERBS = new Set(['rollout', 'scale', 'delete', 'label', 'annotate', 'cordon', 'uncordon', 'create', 'set', 'patch', 'drain', 'taint']);
 const BLOCKED_FLAGS = /^--(kubeconfig|token|server|context|cluster|user|as|as-group|certificate-authority|insecure-skip-tls-verify)/;
 
 export function splitArgs(s) {
@@ -105,7 +105,7 @@ export function splitArgs(s) {
 
 export async function handleKubectl(ws, { cfg, kcFor, user, q, snapshot }) {
   const { cluster } = q;
-  const writeAllowed = process.env.KUBECTL_WRITE === 'true' && canExec(cfg, user);
+  const writeAllowed = process.env.KUBECTL_WRITE !== 'false' && canWrite(cfg, user);
   let kubeconfigPath = null;
   ws.on('close', () => { if (kubeconfigPath) fs.rmSync(path.dirname(kubeconfigPath), { recursive: true, force: true }); });
 
@@ -119,7 +119,7 @@ export async function handleKubectl(ws, { cfg, kcFor, user, q, snapshot }) {
     if (!verb) return done();
     if (args.some((a) => BLOCKED_FLAGS.test(a))) { send(ws, JSON.stringify({ type: 'out', data: 'error: connection flags are managed by EKS Lens and cannot be overridden\n' })); return done(1); }
     if (!READ_VERBS.has(verb) && !(WRITE_VERBS.has(verb) && writeAllowed)) {
-      send(ws, JSON.stringify({ type: 'out', data: `error: "${verb}" is not allowed here. Allowed: ${[...READ_VERBS].join(', ')}${writeAllowed ? ', ' + [...WRITE_VERBS].join(', ') : ''}\n(set KUBECTL_WRITE=true to enable ${[...WRITE_VERBS].join('/')})\n` }));
+      send(ws, JSON.stringify({ type: 'out', data: `error: "${verb}" is not allowed here. Allowed: ${[...READ_VERBS].join(', ')}${writeAllowed ? ', ' + [...WRITE_VERBS].join(', ') : ''}\n(changes are disabled: READ_ONLY, WRITE_ENABLED=false or KUBECTL_WRITE=false)\n` }));
       return done(1);
     }
     if (verb === 'logs' && args.some((a) => a === '-f' || a === '--follow')) {

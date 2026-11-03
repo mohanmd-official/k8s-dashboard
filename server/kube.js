@@ -2,9 +2,10 @@
 // metrics-server usage, and normalization into the shape public/js/shared/model.js expects.
 import * as k8s from '@kubernetes/client-node';
 import { eksToken } from './aws.js';
-import { nodeHourlyPrice } from './pricing.js';
+import { priceNodes } from './pricing.js';
 
 const clients = new Map(); // clusterId -> { kc, exp }
+export const clearKubeClients = () => clients.clear();
 
 export async function kubeConfigFor(cluster, account) {
   const hit = clients.get(cluster.id);
@@ -103,10 +104,11 @@ export async function collectInventory(cluster, account, settings) {
       usageMemGiB: nodeMetrics[n.metadata.name]?.mem ?? null,
     };
     if (l['eks.amazonaws.com/compute-type'] === 'fargate') base.capacityType = 'FARGATE';
-    const { price, estimated } = nodeHourlyPrice(base, settings.costModel);
-    return { ...base, hourlyPrice: price, priceEstimated: estimated };
+    return base;
   });
-  if (nodes.some((n) => n.priceEstimated)) warnings.push('Some instance types are not in the price table and were estimated. Add them under settings.costModel.instancePrices.');
+  await priceNodes(nodes, account, cluster.region, settings.costModel);
+  const est = [...new Set(nodes.filter((n) => n.priceEstimated && n.capacityType !== 'FARGATE').map((n) => n.instanceType))];
+  if (est.length) warnings.push(`Prices for ${est.join(', ')} could not be read from the AWS Price List API and were estimated. Allow pricing:GetProducts and ec2:DescribeSpotPriceHistory for this account, or set them under settings.costModel.instancePrices.`);
 
   const pods = podList.items.map((p) => {
     const ns = p.metadata.namespace;
@@ -128,11 +130,23 @@ export async function collectInventory(cluster, account, settings) {
       };
     });
     const hasUsage = containers.some((c) => c.usageCpu != null);
+    const secretRefs = new Set(); const configMapRefs = new Set();
+    for (const c of [...(p.spec.containers || []), ...(p.spec.initContainers || [])]) {
+      for (const e of c.envFrom || []) { if (e.secretRef?.name) secretRefs.add(e.secretRef.name); if (e.configMapRef?.name) configMapRefs.add(e.configMapRef.name); }
+      for (const e of c.env || []) { if (e.valueFrom?.secretKeyRef?.name) secretRefs.add(e.valueFrom.secretKeyRef.name); if (e.valueFrom?.configMapKeyRef?.name) configMapRefs.add(e.valueFrom.configMapKeyRef.name); }
+    }
+    for (const v of p.spec.volumes || []) {
+      if (v.secret?.secretName) secretRefs.add(v.secret.secretName);
+      if (v.configMap?.name) configMapRefs.add(v.configMap.name);
+      for (const src of v.projected?.sources || []) { if (src.secret?.name) secretRefs.add(src.secret.name); if (src.configMap?.name) configMapRefs.add(src.configMap.name); }
+    }
+    for (const s of p.spec.imagePullSecrets || []) if (s.name) secretRefs.add(s.name);
     return {
       name: p.metadata.name, namespace: ns, node: p.spec.nodeName || null,
       phase: p.status.phase, reason: p.status.reason, ip: p.status.podIP, qos: p.status.qosClass,
       created: p.metadata.creationTimestamp, ownerKind, ownerName,
       initContainers: (p.spec.initContainers || []).map((c) => c.name),
+      serviceAccount: p.spec.serviceAccountName, secretRefs: [...secretRefs], configMapRefs: [...configMapRefs],
       containers,
       usageCpu: hasUsage ? containers.reduce((a, c) => a + (c.usageCpu || 0), 0) : null,
       usageMemGiB: hasUsage ? containers.reduce((a, c) => a + (c.usageMemGiB || 0), 0) : null,
@@ -151,7 +165,7 @@ export async function collectInventory(cluster, account, settings) {
   ];
 
   return {
-    cluster: { id: cluster.id, name: cluster.name, account: cluster.account, accountId: cluster.accountId, region: cluster.region, version: cluster.version, status: cluster.status },
+    cluster: { id: cluster.id, name: cluster.name, account: cluster.account, accountId: cluster.accountId, region: cluster.region, version: cluster.version, status: cluster.status, supportType: cluster.supportType },
     generatedAt: new Date().toISOString(),
     metricsAvailable, warnings,
     namespaces: nsList.items.map((n) => ({ name: n.metadata.name, created: n.metadata.creationTimestamp, status: n.status?.phase, labels: n.metadata.labels || {} })),
