@@ -27,6 +27,7 @@ export function loadConfig() {
   const accounts = (raw.accounts || []).map((a) => ({
     name: a.name,
     accountId: String(a.accountId || ''),
+    profile: a.profile || undefined,
     roleArn: a.roleArn || '',
     externalId: a.externalId || undefined,
     regions: a.regions?.length ? a.regions : [process.env.AWS_REGION || 'us-east-1'],

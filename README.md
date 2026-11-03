@@ -39,6 +39,10 @@ npm start
 
 Your local identity needs an EKS access entry (or the spoke role) in each cluster, and network reach to the cluster API endpoints.
 
+Several accounts from one laptop: give each account in `accounts.yaml` its own `profile:` from `~/.aws/config`, run `aws sso login --profile <name>` for each, and leave `roleArn` empty.
+
+Or in Docker: `docker compose up --build` (mounts `./config` and `~/.aws`, serves http://localhost:8080 on this Mac only).
+
 ## Deploy for the company
 
 1. **IAM**: `deploy/terraform/` creates the hub role (EKS Pod Identity) and a spoke role plus EKS access entry in every account. See `deploy/terraform/README.md`.

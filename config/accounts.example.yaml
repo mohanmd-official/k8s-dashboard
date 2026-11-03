@@ -1,7 +1,10 @@
 # EKS Lens - account & cluster registry
 # Copy to config/accounts.yaml (or mount as a ConfigMap at /app/config/accounts.yaml).
 #
-# The dashboard runs with ONE base identity (EKS Pod Identity / IRSA in the hub account,
+# Running on your laptop? Give each account `profile: <name>` from ~/.aws/config
+# (run `aws sso login --profile <name>` first) and leave roleArn empty.
+#
+# In production the dashboard runs with ONE base identity (EKS Pod Identity / IRSA in the hub account,
 # or your local AWS profile). For every account below it calls sts:AssumeRole into the
 # given roleArn, discovers EKS clusters in the listed regions, and connects with a
 # short-lived EKS token. No kubeconfig or static keys are stored.
@@ -21,6 +24,7 @@ settings:
 accounts:
   - name: shared-services
     accountId: "111111111111"
+    # profile: cd-shared          # local AWS CLI profile for this account (laptop use)
     # Leave roleArn empty to use the base identity directly (same-account clusters).
     roleArn: ""
     regions: [ap-south-1, us-east-1]

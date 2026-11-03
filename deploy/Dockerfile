@@ -1,7 +1,7 @@
 # Build from the repo root:  docker build -f deploy/Dockerfile -t eks-lens:0.1.0 .
 FROM node:22-alpine
 ARG KUBECTL_VERSION=v1.31.2
-ARG TARGETARCH=amd64
+ARG TARGETARCH
 RUN apk add --no-cache ca-certificates curl \
  && curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
  && chmod +x /usr/local/bin/kubectl \

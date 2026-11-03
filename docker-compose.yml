@@ -1,0 +1,22 @@
+# Run EKS Lens on your laptop in Docker, using your local AWS CLI profiles.
+#   cp config/accounts.example.yaml config/accounts.yaml   # then edit
+#   aws sso login --profile <name>                          # for each profile used
+#   docker compose up --build                               # http://localhost:8080
+# Sample data only:  DEMO_MODE=true docker compose up --build
+services:
+  eks-lens:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "127.0.0.1:8080:8080"     # only reachable from this Mac
+    environment:
+      DEMO_MODE: ${DEMO_MODE:-false}
+      ACCOUNTS_FILE: /app/config/accounts.yaml
+      AWS_PROFILE: ${AWS_PROFILE:-}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      READ_ONLY: ${READ_ONLY:-false}
+    volumes:
+      - ./config:/app/config:ro
+      - ${HOME}/.aws:/home/node/.aws   # SSO token cache must be writable for refresh
+    restart: unless-stopped
