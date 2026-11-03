@@ -4,3 +4,4 @@ data/
 .terraform/
 *.tfstate*
 .DS_Store
+_old/
