@@ -1,0 +1,41 @@
+# EKS Lens - account & cluster registry
+# Copy to config/accounts.yaml (or mount as a ConfigMap at /app/config/accounts.yaml).
+#
+# The dashboard runs with ONE base identity (EKS Pod Identity / IRSA in the hub account,
+# or your local AWS profile). For every account below it calls sts:AssumeRole into the
+# given roleArn, discovers EKS clusters in the listed regions, and connects with a
+# short-lived EKS token. No kubeconfig or static keys are stored.
+
+settings:
+  refreshSeconds: 60          # inventory cache TTL
+  readOnly: false             # true = disable the pod shell (exec) for everyone
+  costModel:
+    hoursPerMonth: 730
+    spotDiscount: 0.65        # spot nodes priced at (1 - 0.65) x on-demand when no price override
+    cpuToMemCostRatio: 7.46   # 1 vCPU-hour costs the same as 7.46 GiB-hours (OpenCost default ratio)
+    # Per-instance hourly on-demand price overrides (USD). Anything not listed falls back
+    # to the built-in table in server/pricing.js.
+    instancePrices:
+      # m7i.large: 0.1008
+
+accounts:
+  - name: shared-services
+    accountId: "111111111111"
+    # Leave roleArn empty to use the base identity directly (same-account clusters).
+    roleArn: ""
+    regions: [ap-south-1, us-east-1]
+    # Optional: restrict to these clusters. Omit to auto-discover every cluster in the regions.
+    # clusters: [cd-internal-shared-eks]
+
+  - name: client-prod
+    accountId: "222222222222"
+    roleArn: arn:aws:iam::222222222222:role/eks-lens-spoke
+    externalId: eks-lens          # must match the spoke role trust policy
+    regions: [us-east-1]
+
+  - name: client-dev
+    accountId: "333333333333"
+    roleArn: arn:aws:iam::333333333333:role/eks-lens-spoke
+    externalId: eks-lens
+    regions: [us-west-2]
+    clusters: [demo-cluster]

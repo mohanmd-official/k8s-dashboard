@@ -1,0 +1,31 @@
+{
+  "name": "eks-lens",
+  "version": "0.1.0",
+  "description": "Multi-account EKS dashboard: inventory, cost split, metrics, live logs, pod shell",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "demo": "DEMO_MODE=true node server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/client-eks": "^3.1159.0",
+    "@aws-sdk/client-sts": "^3.1159.0",
+    "@aws-sdk/credential-providers": "^3.1159.0",
+    "@kubernetes/client-node": "^2.0.1",
+    "@smithy/protocol-http": "^5.6.2",
+    "@smithy/signature-v4": "^5.7.4",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "express": "^5.3.0",
+    "ws": "^8.22.0",
+    "yaml": "^2.9.1"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

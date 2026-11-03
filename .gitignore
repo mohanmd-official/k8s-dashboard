@@ -1,0 +1,5 @@
+node_modules/
+config/accounts.yaml
+.terraform/
+*.tfstate*
+.DS_Store

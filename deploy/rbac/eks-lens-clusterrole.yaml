@@ -1,0 +1,49 @@
+# Apply in EVERY target cluster. Binds the Kubernetes group "eks-lens" (mapped from the
+# spoke IAM role by the EKS access entry, see deploy/terraform/spoke) to:
+#   eks-lens-view  - read inventory, metrics and logs (required)
+#   eks-lens-exec  - open a shell in pods (optional: delete the binding for a read-only dashboard)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eks-lens-view
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, nodes, pods, pods/log, events, services, persistentvolumeclaims, resourcequotas, limitranges]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets, daemonsets]
+    verbs: [get, list, watch]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch]
+  - apiGroups: [metrics.k8s.io]
+    resources: [pods, nodes]
+    verbs: [get, list]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eks-lens-exec
+rules:
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create, get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eks-lens-view
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: eks-lens-view }
+subjects:
+  - { apiGroup: rbac.authorization.k8s.io, kind: Group, name: eks-lens }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eks-lens-exec
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: eks-lens-exec }
+subjects:
+  - { apiGroup: rbac.authorization.k8s.io, kind: Group, name: eks-lens }
