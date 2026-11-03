@@ -535,7 +535,7 @@ function renderAccounts() {
 
 function accountForm(a) {
   const isNew = !a;
-  a ||= { authType: 'keys', regions: ['us-east-1'], enabled: true };
+  a ||= { authType: 'profile', profile: 'agenticai', regions: ['us-east-2'], enabled: true };
   const regs = new Set(a.regions || []);
   const card = openModal(`<header><h3>${isNew ? 'Add AWS account' : `Edit ${esc(a.name)}`}</h3><button class="ghost" data-mclose type="button">Close</button></header>
     <form class="body" id="accForm" autocomplete="off">
@@ -552,7 +552,7 @@ function accountForm(a) {
         <label class="field full" data-auth="keys"><span>Session token <small>(only for temporary keys)</small></span><input name="sessionToken" type="password" placeholder="${a.hasSessionToken ? '•••••••• (leave blank to keep)' : 'optional'}" spellcheck="false"></label>
         <label class="field full" data-auth="profile"><span>Profile name in ~/.aws/config</span><input name="profile" value="${esc(a.profile || '')}" placeholder="agenticai"><small>Run <code>aws sso login --profile &lt;name&gt;</code> on this machine first.</small></label>
         <label class="field" ><span>Role to assume <small>(optional)</small></span><input name="roleArn" value="${esc(a.roleArn || '')}" placeholder="arn:aws:iam::222222222222:role/eks-lens-spoke"></label>
-        <label class="field"><span>External ID <small>(if the role needs one)</small></span><input name="externalId" value="${esc(a.externalId || '')}"></label>
+        <label class="field"><span>External ID <small>(if the role needs one)</small></span><input name="externalId" value="${esc(a.externalId || '')}" placeholder="eks-lens"></label>
         <div class="field full"><span>Regions to scan</span>
           <div class="radio-row">${['all', ...REGIONS].map((r) => `<label><input type="checkbox" name="regions" value="${r}" ${regs.has(r) ? 'checked' : ''}> ${r === 'all' ? 'All enabled regions' : r}</label>`).join('')}</div>
           <small>"All enabled regions" checks every region (slower first load, needs ec2:DescribeRegions).</small></div>
@@ -565,6 +565,7 @@ function accountForm(a) {
   const form = card.querySelector('#accForm');
   const syncAuth = () => { const t = form.authType.value; card.querySelectorAll('[data-auth]').forEach((el) => { el.hidden = el.dataset.auth !== t; }); };
   form.addEventListener('change', syncAuth); syncAuth();
+  form.roleArn.addEventListener('change', () => { if (form.roleArn.value.trim() && !form.externalId.value.trim()) form.externalId.value = 'eks-lens'; });
   const body = () => {
     const f = new FormData(form);
     return {

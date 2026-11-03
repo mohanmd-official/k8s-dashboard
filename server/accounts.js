@@ -79,6 +79,6 @@ export async function draftAccount(b, existingId) {
     id: existingId || 'draft', source: 'draft', name: b.name || 'draft', accountId: b.accountId || '', authType: b.authType,
     profile: b.profile, accessKeyId: b.accessKeyId || prev?.accessKeyId, secretAccessKey: b.secretAccessKey || prev?.secretAccessKey,
     sessionToken: b.sessionToken || (b.clearSessionToken ? undefined : prev?.sessionToken),
-    roleArn: b.roleArn || '', externalId: b.externalId, regions: b.regions?.length ? b.regions : ['us-east-1'], clusters: b.clusters?.length ? b.clusters : null,
+    roleArn: b.roleArn || '', externalId: b.externalId?.trim() || undefined, regions: b.regions?.length ? b.regions : ['us-east-1'], clusters: b.clusters?.length ? b.clusters : null,
   };
 }

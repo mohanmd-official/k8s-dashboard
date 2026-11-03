@@ -30,7 +30,7 @@ export async function credentialsFor(account) {
   const hit = credCache.get(ck);
   if (hit && hit.exp - Date.now() > 5 * 60_000) return hit.creds;
   const sts = new STSClient({ credentials: sourceCreds(account), region: firstRegion(account) });
-  const out = await sts.send(new AssumeRoleCommand({ RoleArn: account.roleArn, RoleSessionName: 'eks-lens', ExternalId: account.externalId, DurationSeconds: 3600 }));
+  const out = await sts.send(new AssumeRoleCommand({ RoleArn: account.roleArn, RoleSessionName: 'eks-lens', ExternalId: account.externalId?.trim() || undefined, DurationSeconds: 3600 }));
   const c = out.Credentials;
   const creds = { accessKeyId: c.AccessKeyId, secretAccessKey: c.SecretAccessKey, sessionToken: c.SessionToken };
   credCache.set(ck, { creds, exp: c.Expiration.getTime() });
